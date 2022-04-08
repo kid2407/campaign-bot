@@ -61,3 +61,7 @@ class Database:
     async def delete_campaign(self, campaign_id: str) -> None:
         del self.data['campaigns'][campaign_id]
         self.save_data()
+
+    async def update_campaign_description(self, campaign_id: str, description: str) -> None:
+        self.data['campaigns'][campaign_id]['description'] = description
+        self.save_data()
