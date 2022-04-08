@@ -9,9 +9,10 @@ from database import Database
 
 
 class Campaigns:
-    def __init__(self, context: Context, db: Database):
+    def __init__(self, context: Context, db: Database, prefix: str):
         self.context = context
         self.db = db
+        self.prefix = prefix
 
     async def help(self):
         """Your average help command"""
@@ -29,7 +30,7 @@ class Campaigns:
 
         await self.context.send(embed=help_embed)
 
-    async def list_campaigns(self) -> None:
+    async def show_list(self) -> None:
         """Prints a list of all currently active campaigns"""
         campaign_list = await self.db.list_campaigns()
         out = Embed()
@@ -44,7 +45,7 @@ class Campaigns:
 
         await self.context.send(embed=out)
 
-    async def campaign_details(self, args: Tuple) -> None:
+    async def details(self, args: Tuple) -> None:
         """Show the details of all campaigns, that match the given identifier"""
         if len(args) == 0:
             await message(context=self.context, text='You have to specify a campaign to show details for!', message_type=WARN)
@@ -72,7 +73,7 @@ class Campaigns:
 
                 await self.context.send(embed=embed)
 
-    async def add_campaign(self, creator: Member, args: Tuple) -> None:
+    async def add(self, creator: Member, args: Tuple) -> None:
         """Add a new campaign to the database"""
         if len(args) == 0:
             await message(context=self.context, text='You have to specify a name for the campaign!', message_type=WARN)
@@ -85,7 +86,7 @@ class Campaigns:
         campaign_id = await self.db.add_campaign(name, creator.id, description)
         await message(context=self.context, text='Created campaign with ID {}.'.format(campaign_id), message_type=INFO)
 
-    async def delete_campaign(self, requester: Member, args: Tuple) -> None:
+    async def delete(self, requester: Member, args: Tuple) -> None:
         """Deletes a campaign from the database. This cannot be undone!"""
         if len(args) < 2:
             if len(args) == 1:
@@ -136,3 +137,24 @@ class Campaigns:
 
         await self.db.update_campaign_description(str(campaign['id']), description)
         await message(context=self.context, text='Description for campaign {} has been updated.'.format(campaign['name']), message_type=INFO)
+
+    async def process_commands(self, sender: Member, args):
+        if len(args) == 0:
+            subcommand = 'help'
+        else:
+            subcommand = args[0]
+
+        if subcommand == 'help':
+            await self.help()
+        elif subcommand == 'list':
+            await self.show_list()
+        elif subcommand == 'add':
+            await self.add(sender, args[1:])
+        elif subcommand == 'details':
+            await self.details(args[1:])
+        elif subcommand == 'delete':
+            await self.delete(sender, args[1:])
+        elif subcommand == 'description':
+            await self.update_description(sender, args[1:])
+        else:
+            await message(self.context, text='Unknown subcommand. Try `{}campaign help` for a full list of subcommands'.format(self.prefix), message_type='WARN')

@@ -3,6 +3,8 @@ from os import getenv
 from os.path import exists
 from typing import Dict, Union, List
 
+from discord import Member
+
 
 class Database:
     def __init__(self) -> None:
@@ -11,7 +13,13 @@ class Database:
 
         if not exists(self.filepath):
             with open(self.filepath, 'w') as db_file:
-                json.dump({"last_campaign_id": 0}, db_file)
+                json.dump(
+                    {
+                        "last_campaign_id": 0,
+                        "campaigns": {},
+                        "last_oneshot_id": 0,
+                        "oneshots": {}
+                    }, db_file)
                 db_file.close()
         self.load_data()
 
@@ -65,3 +73,24 @@ class Database:
     async def update_campaign_description(self, campaign_id: str, description: str) -> None:
         self.data['campaigns'][campaign_id]['description'] = description
         self.save_data()
+
+    async def add_oneshot(self, name: str, creator: Member, description: str, channel: int, time: int) -> None:
+        pass
+
+    async def delete_oneshot(self, identifier: str, requester: Member) -> None:
+        pass
+
+    async def list_oneshots(self) -> None:
+        pass
+
+    async def oneshot_details(self, identifier: str) -> None:
+        pass
+
+    async def update_oneshot_description(self, oneshot_id: str, description: str):
+        pass
+
+    async def oneshot_change_time(self, identifier, time: int) -> None:
+        pass
+
+    async def oneshot_change_channel(self, identifier, channel: int) -> None:
+        pass
