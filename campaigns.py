@@ -16,10 +16,8 @@ class Campaigns:
 
     async def help(self):
         """Your average help command"""
-        help_embed = Embed()
+        help_embed = Embed(colour=Color.purple(), title='Managing Campaigns - Help', description='The following sub-commands are available:')
         help_embed.colour = Color.purple()
-        help_embed.title = 'Managing Campaigns - Help'
-        help_embed.description = 'The following sub-commands are available:'
 
         help_embed.add_field(name='help', value='Displays this help.', inline=False)
         help_embed.add_field(name='list', value='Lists all campaigns.', inline=False)
@@ -33,15 +31,10 @@ class Campaigns:
     async def show_list(self) -> None:
         """Prints a list of all currently active campaigns"""
         campaign_list = await self.db.list_campaigns()
-        out = Embed()
-        out.colour = Color.blue()
-        out.title = 'List of campaigns'
+        out = Embed(colour=Color.blue(), title='List of campaigns', description='No campaigns found.' if len(campaign_list) == 0 else '')
 
-        if len(campaign_list) == 0:
-            out.description = 'No campaigns found.'
-        else:
-            for campaign in campaign_list.values():
-                out.add_field(name=campaign.get('name'), value=campaign.get('description'), inline=False)
+        for campaign in campaign_list.values():
+            out.add_field(name=campaign.get('name'), value=campaign.get('description'), inline=False)
 
         await self.context.send(embed=out)
 
@@ -61,9 +54,7 @@ class Campaigns:
                 return
 
             for campaign in details:
-                embed = Embed()
-                embed.title = 'Campaign Information - ' + campaign['name']
-                embed.colour = Color.blue()
+                embed = Embed(title='Campaign Information - ' + campaign['name'], colour=Color.blue())
                 embed.add_field(name='Campaign-ID', value=campaign['id'])
                 embed.add_field(name='Name', value=campaign['name'])
                 embed.add_field(name='Description', value=campaign['description'])

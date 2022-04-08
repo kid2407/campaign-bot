@@ -1,7 +1,7 @@
 import json
 from os import getenv
 from os.path import exists
-from typing import Dict, Union, List
+from typing import Dict, Union, List, Optional
 
 from discord import Member
 
@@ -35,8 +35,6 @@ class Database:
         return self.data.get('campaigns', {})
 
     async def add_campaign(self, name: str, creator_id: int, description: str) -> int:
-        if 'campaigns' not in self.data:
-            self.data['campaigns'] = {}
         new_campaign = {
             'id': self.data['last_campaign_id'] + 1,
             'name': name,
@@ -74,17 +72,47 @@ class Database:
         self.data['campaigns'][campaign_id]['description'] = description
         self.save_data()
 
-    async def add_oneshot(self, name: str, creator: Member, description: str, channel: int, time: int) -> None:
+    # -------------
+    # Oneshot-Stuff
+    # -------------
+
+    async def add_oneshot(self, name: str, creator: Member, description: str, time: str, channel: Optional[int], ) -> int:
+        oneshot = {
+            'id': self.data['last_oneshot_id'] + 1,
+            'name': name,
+            'description': description,
+            'creator_id': creator.id,
+            'channel': channel,
+            'time': time
+        }
+        self.data['oneshots'][oneshot['id']] = oneshot
+        self.data['last_oneshot_id'] += 1
+        self.save_data()
+        return oneshot['id']
+
+    async def delete_oneshot(self, identifier: str) -> None:
         pass
 
-    async def delete_oneshot(self, identifier: str, requester: Member) -> None:
-        pass
+    async def list_oneshots(self) -> Dict:
+        return self.data['oneshots']
 
-    async def list_oneshots(self) -> None:
-        pass
-
-    async def oneshot_details(self, identifier: str) -> None:
-        pass
+    async def oneshot_details(self, identifier: str) -> Union[List[Dict], bool]:
+        oneshot_ids = []
+        if identifier.isdigit():
+            oneshot_ids = [identifier]
+        else:
+            for entry in self.data['oneshots'].values():
+                if identifier.lower() in entry['name'].lower():
+                    oneshot_ids.append(str(entry['id']))
+        if len(oneshot_ids) == 0:
+            return False
+        else:
+            oneshot_data = []
+            for oneshot_id in oneshot_ids:
+                oneshot = self.data['oneshots'].get(oneshot_id, None)
+                if oneshot is not None:
+                    oneshot_data.append(oneshot)
+            return oneshot_data
 
     async def update_oneshot_description(self, oneshot_id: str, description: str):
         pass
