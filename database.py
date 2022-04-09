@@ -7,6 +7,11 @@ from discord import Member
 
 
 class Database:
+
+    # ------------- #
+    # General-Stuff #
+    # ------------- #
+
     def __init__(self) -> None:
         self.filepath = getenv('DB_FILE', 'db.json')
         self.data = {}
@@ -15,7 +20,6 @@ class Database:
             with open(self.filepath, 'w') as db_file:
                 json.dump(
                     {
-                        "last_campaign_id": 0,
                         "campaigns": {},
                         "last_oneshot_id": 0,
                         "oneshots": {}
@@ -31,20 +35,27 @@ class Database:
         with open(self.filepath, 'w+') as db_file:
             json.dump(self.data, db_file, indent=4)
 
+    # -------------- #
+    # Campaign-Stuff #
+    # -------------- #
+
     async def list_campaigns(self) -> Dict:
         return self.data.get('campaigns', {})
 
-    async def add_campaign(self, name: str, creator_id: int, description: str) -> int:
+    async def add_campaign(self, name: str, creator_id: int, module: str, description: str, campaign_id: str) -> bool:
+        if campaign_id in self.data['campaigns']:
+            return False
+
         new_campaign = {
-            'id': self.data['last_campaign_id'] + 1,
+            'id': campaign_id,
             'name': name,
+            'module': module,
             'description': description,
             'creator_id': creator_id
         }
-        self.data['campaigns'][new_campaign['id']] = new_campaign
-        self.data['last_campaign_id'] += 1
+        self.data['campaigns'][campaign_id] = new_campaign
         self.save_data()
-        return new_campaign['id']
+        return True
 
     async def campaign_details(self, identifier: str) -> Union[List[Dict], bool]:
         campaign_ids = []
@@ -72,9 +83,9 @@ class Database:
         self.data['campaigns'][campaign_id]['description'] = description
         self.save_data()
 
-    # -------------
-    # Oneshot-Stuff
-    # -------------
+    # ------------- #
+    # Oneshot-Stuff #
+    # ------------- #
 
     async def add_oneshot(self, name: str, creator: Member, description: str, time: str, channel: Optional[int], ) -> int:
         oneshot = {
@@ -90,8 +101,9 @@ class Database:
         self.save_data()
         return oneshot['id']
 
-    async def delete_oneshot(self, identifier: str) -> None:
-        pass
+    async def delete_oneshot(self, oneshot_id: str) -> None:
+        del self.data['oneshots'][oneshot_id]
+        self.save_data()
 
     async def list_oneshots(self) -> Dict:
         return self.data['oneshots']
@@ -114,11 +126,23 @@ class Database:
                     oneshot_data.append(oneshot)
             return oneshot_data
 
-    async def update_oneshot_description(self, oneshot_id: str, description: str):
-        pass
+    async def update_oneshot_description(self, oneshot_id: str, description: str) -> bool:
+        if oneshot_id not in self.data['oneshots']:
+            return False
+        self.data['oneshots'][oneshot_id]['description'] = description
+        self.save_data()
+        return True
 
-    async def oneshot_change_time(self, identifier, time: int) -> None:
-        pass
+    async def oneshot_change_time(self, oneshot_id: str, time: str) -> bool:
+        if oneshot_id not in self.data['oneshots']:
+            return False
+        self.data['oneshots'][oneshot_id]['time'] = time
+        self.save_data()
+        return True
 
-    async def oneshot_change_channel(self, identifier, channel: int) -> None:
-        pass
+    async def oneshot_change_channel(self, oneshot_id: str, channel: int) -> bool:
+        if oneshot_id not in self.data['oneshots']:
+            return False
+        self.data['oneshots'][oneshot_id]['channel'] = channel
+        self.save_data()
+        return True

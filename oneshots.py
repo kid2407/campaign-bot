@@ -1,14 +1,15 @@
 import re
+import time
 from datetime import datetime
 from time import mktime
 from typing import Dict
 
 import pytz
-from discord import Color, Embed, Guild, Member
+from discord import Color, Embed, Guild, Member, TextChannel
 from discord.ext.commands import Context
 
 from MessageHelper import message
-from MessageTypes import INFO, WARN
+from MessageTypes import INFO, WARN, ERROR
 from database import Database
 
 
@@ -66,7 +67,7 @@ class Oneshots:
                 return
 
         oneshot_id = await self.db.add_oneshot(name=name, creator=self.context.author, description=description, time=start_time, channel=channel)
-        await message(context=self.context, text='Successfully added the oneshot "{}" with id {}.'.format(name, oneshot_id), message_type=INFO)
+        await message(context=self.context, text='Successfully added the oneshot "{}" with ID {}.'.format(name, oneshot_id), message_type=INFO)
 
     async def delete(self, args, requester: Member) -> None:
         """Deletes an oneshot from the database. This cannot be undone!"""
@@ -106,37 +107,105 @@ class Oneshots:
 
         details = await self.db.oneshot_details(args[0])
 
-        if not details:
+        if not details or len(details) == 0:
             await message(context=self.context, text='Could not find the oneshot you specified.', message_type=WARN)
-        else:
-            if len(details) == 0:
-                await message(context=self.context, text='Could not find the oneshot you are looking for.', message_type=WARN)
-                return
+            return
 
-            for oneshot in details:
-                embed = Embed(title='Oneshot Information - ' + oneshot['name'], colour=Color.blue())
-                embed.add_field(name='ID', value=oneshot['id'])
-                embed.add_field(name='Name', value=oneshot['name'])
-                embed.add_field(name='Description', value=oneshot['description'])
-                embed.add_field(name='Date/Time', value='<t:{0}> (<t:{0}:R>)'.format(int(mktime(datetime.strptime(oneshot['time'], '%Y-%m-%d %I:%M%p').timetuple()))))
-                if oneshot['channel'] is not None:
-                    embed.add_field(name='Channel', value='<#{}>'.format(oneshot['channel']))
+        for oneshot in details:
+            embed = Embed(title='Oneshot Information - ' + oneshot['name'], colour=Color.blue())
+            embed.add_field(name='ID', value=oneshot['id'])
+            embed.add_field(name='Name', value=oneshot['name'])
+            embed.add_field(name='Description', value=oneshot['description'])
+            embed.add_field(name='Date/Time', value='<t:{0}> (<t:{0}:R>)'.format(int(mktime(datetime.strptime(oneshot['time'], '%Y-%m-%d %I:%M%p').timetuple()))))
+            if oneshot['channel'] is not None:
+                embed.add_field(name='Channel', value='<#{}>'.format(oneshot['channel']))
 
-                dm = self.context.guild.get_member(oneshot['creator_id'])
-                embed.add_field(name='DM', value='<@{}>'.format(dm.id) if dm else 'Unknown User')
+            dm = self.context.guild.get_member(oneshot['creator_id'])
+            embed.add_field(name='DM', value='<@{}>'.format(dm.id) if dm else 'Unknown User')
 
-                await self.context.send(embed=embed)
+            await self.context.send(embed=embed)
 
     async def description(self, args) -> None:
-        # await self.db.update_oneshot_description()
-        await message(context=self.context, text='Description updated', message_type=INFO)
+        if len(args) < 2:
+            if len(args) == 0:
+                await message(context=self.context, text='Please specify a valid oneshot-ID.', message_type=WARN)
+                return
+            if len(args) == 1:
+                await message(context=self.context, text='Please specify a new description.', message_type=WARN)
+                return
+
+        oneshot_id = args[0]
+        description = args[1]
+
+        success = await self.db.update_oneshot_description(oneshot_id, description)
+        if success:
+            await message(context=self.context, text='Description updated', message_type=INFO)
+        else:
+            await message(context=self.context, text='Failed to update description: Invalid oneshot-ID.', message_type=ERROR)
 
     async def change_time(self, args) -> None:  # Time format: date = datetime.strptime(date_str, '%Y-%m-%d %I%p'), e.g. 2022-04-08 4:30pm
-        # await self.db.oneshot_change_time()
-        await message(context=self.context, text='Successfully changed the time to {}.', message_type=INFO)
+        if len(args) < 2:
+            if len(args) == 0:
+                await message(context=self.context, text='Please specify a valid oneshot-ID.', message_type=WARN)
+                return
+            if len(args) == 1:
+                await message(context=self.context, text='Please specify a new time.', message_type=WARN)
+                return
+
+        oneshot_id = args[0]
+        time_string = args[1]
+
+        try:
+            time.strptime(time_string, '%Y-%m-%d %I:%M%p')
+            time_valid = True
+        except ValueError:
+            time_valid = False
+
+        if not time_valid:
+            await message(context=self.context, text='The time you specified is incorrectly formatted. Please use the format "YYYY-MM-DD hour:minute[am/pm]" (e.g. {})'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')), message_type=ERROR)
+            return
+
+        success = await self.db.oneshot_change_time(oneshot_id, time_string)
+        if success:
+            await message(context=self.context, text='Successfully changed the time to <t:{0}>.'.format(int(mktime(datetime.strptime(time_string, '%Y-%m-%d %I:%M%p').timetuple()))), message_type=INFO)
+        else:
+            await message(context=self.context, text='Failed to update description: Invalid oneshot-ID.', message_type=ERROR)
 
     async def change_channel(self, args) -> None:
-        # await self.db.oneshot_change_channel()
+        if len(args) < 2:
+            if len(args) == 0:
+                await message(context=self.context, text='Please specify a valid oneshot-ID.', message_type=WARN)
+                return
+            if len(args) == 1:
+                await message(context=self.context, text='Please specify a new channel.', message_type=WARN)
+                return
+
+        oneshot_id = args[0]
+        channel_string = args[1]
+
+        channel = None
+        result = re.search(r'\d+', channel_string)
+
+        guild: Guild = self.context.guild
+        if not guild:
+            await message(context=self.context, text='Error fetching the channel list. Please try again later.', message_type=ERROR)
+            return
+
+        if result:
+            channel = int(result.group())
+            if guild.get_channel(channel) is None:
+                await message(context=self.context, text='Invalid Channel ID!', message_type=WARN)
+                return
+        else:
+            for text_channel in guild.text_channels:
+                if text_channel.name == channel_string:
+                    channel = text_channel.id
+                    break
+        if channel is None:
+            await message(context=self.context, text='Invalid Channel ID or name!', message_type=WARN)
+            return
+
+        await self.db.oneshot_change_channel(oneshot_id, channel)
         await message(context=self.context, text='Successfully changed the channel to {}.', message_type=INFO)
 
     async def process_commands(self, args) -> None:

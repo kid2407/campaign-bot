@@ -4,7 +4,7 @@ from discord import Embed, Color, Member
 from discord.ext.commands import Context
 
 from MessageHelper import message
-from MessageTypes import INFO, WARN
+from MessageTypes import INFO, WARN, ERROR
 from database import Database
 
 
@@ -22,7 +22,7 @@ class Campaigns:
         help_embed.add_field(name='help', value='Displays this help.', inline=False)
         help_embed.add_field(name='list', value='Lists all campaigns.', inline=False)
         help_embed.add_field(name='details <campaign-id|campaign-name>', value='Display a detailed overview about one campaign. If multiple are found, all matches will be shown.', inline=False)
-        help_embed.add_field(name='add <name> [description]', value='Add a new campaign.', inline=False)
+        help_embed.add_field(name='add <name> <module> <description> <campaign-id>', value='Add a new campaign.', inline=False)
         help_embed.add_field(name='delete <campaign-name> <campaign-id>', value='Deletes a campaign. This cannot be undone!', inline=False)
         help_embed.add_field(name='description <campaign-id> <description>', value='Update the description of a campaign.', inline=False)
 
@@ -34,7 +34,7 @@ class Campaigns:
         out = Embed(colour=Color.blue(), title='List of campaigns', description='No campaigns found.' if len(campaign_list) == 0 else '')
 
         for campaign in campaign_list.values():
-            out.add_field(name=campaign.get('name'), value=campaign.get('description'), inline=False)
+            out.add_field(name=campaign.get('name'), value='*Module*: {}\n*Description*: {}'.format(campaign['module'], campaign['description']), inline=False)
 
         await self.context.send(embed=out)
 
@@ -46,36 +46,49 @@ class Campaigns:
 
         details = await self.db.campaign_details(args[0])
 
-        if not details:
+        if not details or len(details) == 0:
             await message(context=self.context, text='Could not find the campaign you specified.', message_type=WARN)
-        else:
-            if len(details) == 0:
-                await message(context=self.context, text='Could not find the campaign you are looking for.', message_type=WARN)
-                return
+            return
 
-            for campaign in details:
-                embed = Embed(title='Campaign Information - ' + campaign['name'], colour=Color.blue())
-                embed.add_field(name='Campaign-ID', value=campaign['id'])
-                embed.add_field(name='Name', value=campaign['name'])
-                embed.add_field(name='Description', value=campaign['description'])
+        for campaign in details:
+            embed = Embed(title='Campaign Information - ' + campaign['name'], colour=Color.blue())
+            embed.add_field(name='Campaign-ID', value=campaign['id'])
+            embed.add_field(name='Name', value=campaign['name'])
+            embed.add_field(name='Module', value=campaign['module'])
 
-                dm = self.context.guild.get_member(campaign['creator_id'])
-                embed.add_field(name='DM', value=dm.name if dm else 'Unknown User')
+            dm = self.context.guild.get_member(campaign['creator_id'])
+            embed.add_field(name='DM', value='<@{}>'.format(dm.id) if dm else 'Unknown User')
+            embed.add_field(name='Description', value=campaign['description'])
 
-                await self.context.send(embed=embed)
+            embed.add_field(name='Next Session', value='TBA')
+
+            await self.context.send(embed=embed)
 
     async def add(self, creator: Member, args: Tuple) -> None:
         """Add a new campaign to the database"""
-        if len(args) == 0:
-            await message(context=self.context, text='You have to specify a name for the campaign!', message_type=WARN)
-            return
+        if len(args) < 4:
+            if len(args) == 0:
+                await message(context=self.context, text='Please specify a name for the campaign.', message_type=WARN)
+                return
+            if len(args) == 1:
+                await message(context=self.context, text='Please specify which module this is from (Use "Homebrew" if not applicable)', message_type=WARN)
+                return
+            if len(args) == 2:
+                await message(context=self.context, text='Please specify a description for the campaign.', message_type=WARN)
+                return
+            if len(args) == 3:
+                await message(context=self.context, text='Please specify a campaign-ID (usually the group number).', message_type=WARN)
+                return
         name = args[0]
-        if len(args) > 1:
-            description = args[1]
+        module = args[1]
+        description = args[2]
+        campaign_id = args[3]
+
+        success = await self.db.add_campaign(name, creator.id, module, description, campaign_id)
+        if success:
+            await message(context=self.context, text='Created campaign "{}" with ID {}.'.format(name, campaign_id), message_type=INFO)
         else:
-            description = '*(no description)*'
-        campaign_id = await self.db.add_campaign(name, creator.id, description)
-        await message(context=self.context, text='Created campaign with ID {}.'.format(campaign_id), message_type=INFO)
+            await message(context=self.context, text='Failed to create campaign: Campaign with the ID {} already exists!'.format(campaign_id), message_type=ERROR)
 
     async def delete(self, requester: Member, args: Tuple) -> None:
         """Deletes a campaign from the database. This cannot be undone!"""
