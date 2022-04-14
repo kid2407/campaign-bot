@@ -1,5 +1,9 @@
+import time
+from datetime import datetime
+from time import mktime
 from typing import Tuple, Dict
 
+import pytz
 from discord import Embed, Color, Member
 from discord.ext.commands import Context
 
@@ -25,6 +29,7 @@ class Campaigns:
         help_embed.add_field(name='add <name> <module> <description> <campaign-id>', value='Add a new campaign.', inline=False)
         help_embed.add_field(name='delete <campaign-name> <campaign-id>', value='Deletes a campaign. This cannot be undone!', inline=False)
         help_embed.add_field(name='description <campaign-id> <description>', value='Update the description of a campaign.', inline=False)
+        help_embed.add_field(name='session <campaign-id> <date>', value='Update the date of the next session. Requires to use the format \'YYYY-MM-DD hour:minute[am/pm]\' (e.g. {}) for the date and time.'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')), inline=False)
 
         await self.context.send(embed=help_embed)
 
@@ -60,7 +65,7 @@ class Campaigns:
             embed.add_field(name='DM', value='<@{}>'.format(dm.id) if dm else 'Unknown User')
             embed.add_field(name='Description', value=campaign['description'])
 
-            embed.add_field(name='Next Session', value='TBA')
+            embed.add_field(name='Next Session', value='<t:{0}>\n\n<t:{0}:R>'.format(int(mktime(datetime.strptime(campaign['session'], '%Y-%m-%d %I:%M%p').timetuple()))) if len(campaign['session']) > 0 else 'TBA')
 
             await self.context.send(embed=embed)
 
@@ -124,6 +129,7 @@ class Campaigns:
             if len(args) == 1:
                 await message(context=self.context, text='You have to specify a description!', message_type=WARN)
                 return
+
         campaign_id = args[0]
         description = args[1]
         campaigns = await self.db.campaign_details(identifier=campaign_id)
@@ -141,6 +147,46 @@ class Campaigns:
 
         await self.db.update_campaign_description(str(campaign['id']), description)
         await message(context=self.context, text='Description for campaign {} has been updated.'.format(campaign['name']), message_type=INFO)
+
+    async def update_session_date(self, requester: Member, args: Tuple) -> None:
+        if len(args) < 2:
+            if len(args) == 0:
+                await message(context=self.context, text='You have to specify a campaign!', message_type=WARN)
+                return
+            if len(args) == 1:
+                await message(context=self.context, text='You have to specify a session date!', message_type=WARN)
+                return
+
+        campaign_id = args[0]
+        session_string = args[1]
+        campaigns = await self.db.campaign_details(identifier=campaign_id)
+        if len(campaigns) != 1:
+            if len(campaigns) == 0:
+                await message(context=self.context, text='You specified an invalid campaign!', message_type=WARN)
+                return
+            await message(context=self.context, text='Multiple campaigns that match found. Please specify only one campaign.', message_type=WARN)
+            return
+
+        campaign = campaigns[0]
+        if campaign['creator_id'] != requester.id:
+            await message(context=self.context, text='You are not the owner of the campaign!', message_type=WARN)
+            return
+
+        try:
+            time.strptime(session_string, '%Y-%m-%d %I:%M%p')
+            time_valid = True
+        except ValueError:
+            time_valid = False
+
+        if not time_valid:
+            await message(context=self.context, text='The time you specified is incorrectly formatted. Please use the format "YYYY-MM-DD hour:minute[am/pm]" (e.g. {})'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')), message_type=ERROR)
+            return
+
+        success = await self.db.update_campaign_session_date(str(campaign['id']), session_string)
+        if success:
+            await message(context=self.context, text='Successfully changed the session time to <t:{0}>.'.format(int(mktime(datetime.strptime(session_string, '%Y-%m-%d %I:%M%p').timetuple()))), message_type=INFO)
+        else:
+            await message(context=self.context, text='Failed to update session time: An unknown error occurred.', message_type=ERROR)
 
     async def process_commands(self, sender: Member, args):
         if len(args) == 0:
@@ -160,5 +206,7 @@ class Campaigns:
             await self.delete(sender, args[1:])
         elif subcommand == 'description':
             await self.update_description(sender, args[1:])
+        elif subcommand == 'session':
+            await self.update_session_date(sender, args[1:])
         else:
             await message(self.context, text='Unknown subcommand. Try `{}campaign help` for a full list of subcommands'.format(self.prefix), message_type='WARN')

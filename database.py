@@ -57,6 +57,10 @@ class Database:
         self.save_data()
         return True
 
+    async def delete_campaign(self, campaign_id: str) -> None:
+        del self.data['campaigns'][campaign_id]
+        self.save_data()
+
     async def campaign_details(self, identifier: str) -> Union[List[Dict], bool]:
         campaign_ids = []
         if identifier.isdigit():
@@ -75,13 +79,16 @@ class Database:
                     campaign_data.append(campaign)
             return campaign_data
 
-    async def delete_campaign(self, campaign_id: str) -> None:
-        del self.data['campaigns'][campaign_id]
-        self.save_data()
-
     async def update_campaign_description(self, campaign_id: str, description: str) -> None:
         self.data['campaigns'][campaign_id]['description'] = description
         self.save_data()
+
+    async def update_campaign_session_date(self, campaign_id: str, session_string: str) -> bool:
+        if campaign_id not in self.data['campaigns']:
+            return False
+        self.data['campaigns'][campaign_id]['session'] = session_string
+        self.save_data()
+        return True
 
     # ------------- #
     # Oneshot-Stuff #

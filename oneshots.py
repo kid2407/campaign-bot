@@ -5,7 +5,7 @@ from time import mktime
 from typing import Dict
 
 import pytz
-from discord import Color, Embed, Guild, Member, TextChannel
+from discord import Color, Embed, Guild, Member
 from discord.ext.commands import Context
 
 from MessageHelper import message
@@ -26,7 +26,7 @@ class Oneshots:
         help_embed.add_field(name='help', value='Displays this help.', inline=False)
         help_embed.add_field(name='list', value='Lists all oneshots.', inline=False)
         help_embed.add_field(name='details <oneshot-id|oneshot-name>', value='Display a detailed overview about one oneshot. If multiple are found, all matches will be shown.', inline=False)
-        help_embed.add_field(name='add <name> <description> <date> [channel]', value='Add a new oneshot. Use the format \'YYYY-MM-DD hour:minute[am/pm]\' (e.g. {}) for the date. Mention the channel or type down it\'s name.'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')), inline=False)
+        help_embed.add_field(name='add <name> <description> <date> [channel]', value='Add a new oneshot. Use the format \'YYYY-MM-DD hour:minute[am/pm]\' (e.g. {}) for the date and time. Mention the channel or type down it\'s name.'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')), inline=False)
         help_embed.add_field(name='delete <oneshot-name> <oneshot-id>', value='Deletes a oneshot. This cannot be undone!', inline=False)
         help_embed.add_field(name='description <oneshot-id> <description>', value='Update the description of a oneshot.', inline=False)
         help_embed.add_field(name='channel <oneshot-id> <channel>', value='Update the channel of a oneshot.', inline=False)
@@ -169,7 +169,7 @@ class Oneshots:
         if success:
             await message(context=self.context, text='Successfully changed the time to <t:{0}>.'.format(int(mktime(datetime.strptime(time_string, '%Y-%m-%d %I:%M%p').timetuple()))), message_type=INFO)
         else:
-            await message(context=self.context, text='Failed to update description: Invalid oneshot-ID.', message_type=ERROR)
+            await message(context=self.context, text='Failed to update session time: Invalid oneshot-ID.', message_type=ERROR)
 
     async def change_channel(self, args) -> None:
         if len(args) < 2:
