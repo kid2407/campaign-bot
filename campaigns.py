@@ -1,5 +1,6 @@
 import time
 from datetime import datetime
+from os import getenv
 from time import mktime
 from typing import Tuple, Dict
 
@@ -13,10 +14,15 @@ from database import Database
 
 
 class Campaigns:
+    FREE_COMMANDS = ['help', 'list', 'details']
+    GATED_COMMANDS = ['add', 'delete', 'description', 'session']
+
     def __init__(self, context: Context, db: Database, prefix: str):
         self.context = context
         self.db = db
         self.prefix = prefix
+        role_string = getenv('CAMPAIGN_ROLES')
+        self.GATED_ROLES = list(map(int, role_string.split(','))) if role_string is not None else []
 
     async def help(self):
         """Your average help command"""
@@ -188,11 +194,15 @@ class Campaigns:
         else:
             await message(context=self.context, text='Failed to update session time: An unknown error occurred.', message_type=ERROR)
 
-    async def process_commands(self, sender: Member, args):
+    async def process_commands(self, sender: Member, args) -> None:
         if len(args) == 0:
             subcommand = 'help'
         else:
             subcommand = args[0]
+
+        if not await self.check_permissions_for_command(sender, subcommand):
+            await message(context=self.context, text='You do not have the required role to use this command!', message_type=WARN)
+            return
 
         if subcommand == 'help':
             await self.help()
@@ -210,3 +220,13 @@ class Campaigns:
             await self.update_session_date(sender, args[1:])
         else:
             await message(self.context, text='Unknown subcommand. Try `{}campaign help` for a full list of subcommands'.format(self.prefix), message_type='WARN')
+
+    async def check_permissions_for_command(self, requester: Member, command: str) -> bool:
+        if command in self.FREE_COMMANDS:
+            return True
+
+        if command in self.GATED_COMMANDS:
+            role_ids = list(map(lambda role: role.id, requester.roles))
+            return not set(role_ids).isdisjoint(self.GATED_ROLES)
+
+        return False

@@ -1,8 +1,9 @@
 import re
 import time
 from datetime import datetime
+from os import getenv
 from time import mktime
-from typing import Dict
+from typing import Dict, Tuple
 
 import pytz
 from discord import Color, Embed, Guild, Member
@@ -14,10 +15,15 @@ from database import Database
 
 
 class Oneshots:
+    FREE_COMMANDS = ['help', 'list', 'details']
+    GATED_COMMANDS = ['add', 'delete', 'description', 'channel', 'time']
+
     def __init__(self, context: Context, db: Database, prefix: str) -> None:
         self.context = context
         self.db = db
         self.prefix = prefix
+        role_string = getenv('ONESHOT_ROLES')
+        self.GATED_ROLES = list(map(int, role_string.split(','))) if role_string is not None else []
 
     async def help(self) -> None:
         """Help for Oneshot related commands"""
@@ -208,18 +214,22 @@ class Oneshots:
         await self.db.oneshot_change_channel(oneshot_id, channel)
         await message(context=self.context, text='Successfully changed the channel to {}.', message_type=INFO)
 
-    async def process_commands(self, args) -> None:
+    async def process_commands(self, sender: Member, args: Tuple) -> None:
         if len(args) == 0:
             subcommand = 'help'
         else:
             subcommand = args[0]
+
+        if not await self.check_permissions_for_command(sender, subcommand):
+            await message(context=self.context, text='You do not have the required role to use this command!', message_type=WARN)
+            return
 
         if subcommand == 'help':
             await self.help()
         elif subcommand == 'add':
             await self.add(args[1:])
         elif subcommand == 'delete':
-            await self.delete(args[1:], self.context.author)
+            await self.delete(args[1:], sender)
         elif subcommand == 'list':
             await self.show_list()
         elif subcommand == 'details':
@@ -232,3 +242,13 @@ class Oneshots:
             await self.change_channel(args[1:])
         else:
             await message(self.context, text='Unknown subcommand. Try `{}campaign help` for a full list of subcommands'.format(self.prefix), message_type='WARN')
+
+    async def check_permissions_for_command(self, requester: Member, command: str) -> bool:
+        if command in self.FREE_COMMANDS:
+            return True
+
+        if command in self.GATED_COMMANDS:
+            role_ids = list(map(lambda role: role.id, requester.roles))
+            return not set(role_ids).isdisjoint(self.GATED_ROLES)
+
+        return False

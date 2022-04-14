@@ -50,7 +50,7 @@ async def campaigns(context: Context, *args):
 
 @bot.command(name='oneshot')
 async def oneshots(context: Context, *args):
-    await Oneshots(context, Database(), bot.command_prefix).process_commands(args)
+    await Oneshots(context, Database(), bot.command_prefix).process_commands(context.author, args)
 
 
 bot.run(getenv('BOT_TOKEN'))
