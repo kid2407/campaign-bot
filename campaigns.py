@@ -3,7 +3,7 @@ from datetime import datetime
 from itertools import islice
 from os import getenv
 from time import mktime
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Union
 
 import pytz
 from discord import Embed, Color, Member
@@ -91,7 +91,7 @@ class Campaigns:
             embed.add_field(name='DM', value='<@{}>'.format(dm.id) if dm else 'Unknown User')
             embed.add_field(name='Description', value=campaign['description'])
 
-            embed.add_field(name='Next Session', value='<t:{0}>\n\n<t:{0}:R>'.format(int(mktime(datetime.strptime(campaign['session'], '%Y-%m-%d %I:%M%p').timetuple()))) if 'session' in campaign and len(campaign['session']) > 0 else 'TBA')
+            embed.add_field(name='Next Session', value='<t:{0}>\n\n<t:{0}:R>'.format(int(mktime(datetime.strptime(campaign['session'], '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))) if 'session' in campaign and len(campaign['session']) > 0 else 'TBA')
 
             await self.context.send(embed=embed)
 
@@ -131,8 +131,8 @@ class Campaigns:
             return
 
         campaigns = await self.db.campaign_details(identifier=args[1])
-        if len(campaigns) != 1:
-            if len(campaigns) == 0:
+        if not campaigns or len(campaigns) != 1:
+            if not campaigns or len(campaigns) == 0:
                 await message(context=self.context, text='You specified an invalid campaign!', message_type=WARN)
                 return
             await message(context=self.context, text='Multiple campaigns that match found. Please specify only one campaign.', message_type=WARN)
@@ -159,8 +159,8 @@ class Campaigns:
         campaign_id = args[0]
         description = args[1]
         campaigns = await self.db.campaign_details(identifier=campaign_id)
-        if len(campaigns) != 1:
-            if len(campaigns) == 0:
+        if not campaigns or len(campaigns) != 1:
+            if not campaigns or len(campaigns) == 0:
                 await message(context=self.context, text='You specified an invalid campaign!', message_type=WARN)
                 return
             await message(context=self.context, text='Multiple campaigns that match found. Please specify only one campaign.', message_type=WARN)
@@ -186,8 +186,8 @@ class Campaigns:
         campaign_id = args[0]
         session_string = args[1]
         campaigns = await self.db.campaign_details(identifier=campaign_id)
-        if len(campaigns) != 1:
-            if len(campaigns) == 0:
+        if not campaigns or len(campaigns) != 1:
+            if not campaigns or len(campaigns) == 0:
                 await message(context=self.context, text='You specified an invalid campaign!', message_type=WARN)
                 return
             await message(context=self.context, text='Multiple campaigns that match found. Please specify only one campaign.', message_type=WARN)
@@ -210,7 +210,7 @@ class Campaigns:
 
         success = await self.db.update_campaign_session_date(str(campaign['id']), session_string)
         if success:
-            await message(context=self.context, text='Successfully changed the session time to <t:{0}>.'.format(int(mktime(datetime.strptime(session_string, '%Y-%m-%d %I:%M%p').timetuple()))), message_type=INFO)
+            await message(context=self.context, text='Successfully changed the session time to <t:{0}>.'.format(int(mktime(datetime.strptime(session_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))), message_type=INFO)
         else:
             await message(context=self.context, text='Failed to update session time: An unknown error occurred.', message_type=ERROR)
 
@@ -220,7 +220,11 @@ class Campaigns:
         else:
             subcommand = args[0]
 
-        if not await self.check_permissions_for_command(sender, subcommand):
+        has_permission = await self.check_permissions_for_command(sender, subcommand)
+
+        if has_permission is None:
+            subcommand = ''
+        elif not has_permission:
             await message(context=self.context, text='You do not have the required role to use this command!', message_type=WARN)
             return
 
@@ -241,7 +245,7 @@ class Campaigns:
         else:
             await message(self.context, text='Unknown subcommand. Try `{}campaign help` for a full list of subcommands'.format(self.prefix), message_type='WARN')
 
-    async def check_permissions_for_command(self, requester: Member, command: str) -> bool:
+    async def check_permissions_for_command(self, requester: Member, command: str) -> Union[bool, None]:
         if command in self.FREE_COMMANDS:
             return True
 
@@ -249,4 +253,4 @@ class Campaigns:
             role_ids = list(map(lambda role: role.id, requester.roles))
             return not set(role_ids).isdisjoint(self.GATED_ROLES)
 
-        return False
+        return None

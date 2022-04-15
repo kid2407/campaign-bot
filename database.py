@@ -63,7 +63,7 @@ class Database:
 
     async def campaign_details(self, identifier: str) -> Union[List[Dict], bool]:
         campaign_ids = []
-        if identifier.isdigit():
+        if identifier in self.data['campaigns']:
             campaign_ids = [identifier]
         else:
             for entry in self.data['campaigns'].values():
@@ -117,7 +117,7 @@ class Database:
 
     async def oneshot_details(self, identifier: str) -> Union[List[Dict], bool]:
         oneshot_ids = []
-        if identifier.isdigit():
+        if identifier in self.data['campaigns']:
             oneshot_ids = [identifier]
         else:
             for entry in self.data['oneshots'].values():

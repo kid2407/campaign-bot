@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 from os import getenv
 from time import mktime
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import pytz
 from discord import Color, Embed, Guild, Member
@@ -122,7 +122,7 @@ class Oneshots:
             embed.add_field(name='ID', value=oneshot['id'])
             embed.add_field(name='Name', value=oneshot['name'])
             embed.add_field(name='Description', value=oneshot['description'])
-            embed.add_field(name='Date/Time', value='<t:{0}> (<t:{0}:R>)'.format(int(mktime(datetime.strptime(oneshot['time'], '%Y-%m-%d %I:%M%p').timetuple()))))
+            embed.add_field(name='Date/Time', value='<t:{0}> (<t:{0}:R>)'.format(int(mktime(datetime.strptime(oneshot['time'], '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))))
             if oneshot['channel'] is not None:
                 embed.add_field(name='Channel', value='<#{}>'.format(oneshot['channel']))
 
@@ -173,7 +173,7 @@ class Oneshots:
 
         success = await self.db.oneshot_change_time(oneshot_id, time_string)
         if success:
-            await message(context=self.context, text='Successfully changed the time to <t:{0}>.'.format(int(mktime(datetime.strptime(time_string, '%Y-%m-%d %I:%M%p').timetuple()))), message_type=INFO)
+            await message(context=self.context, text='Successfully changed the time to <t:{0}>.'.format(int(mktime(datetime.strptime(time_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))), message_type=INFO)
         else:
             await message(context=self.context, text='Failed to update session time: Invalid oneshot-ID.', message_type=ERROR)
 
@@ -220,7 +220,11 @@ class Oneshots:
         else:
             subcommand = args[0]
 
-        if not await self.check_permissions_for_command(sender, subcommand):
+        has_permission = await self.check_permissions_for_command(sender, subcommand)
+
+        if has_permission is None:
+            subcommand = ''
+        elif not has_permission:
             await message(context=self.context, text='You do not have the required role to use this command!', message_type=WARN)
             return
 
@@ -243,7 +247,7 @@ class Oneshots:
         else:
             await message(self.context, text='Unknown subcommand. Try `{}campaign help` for a full list of subcommands'.format(self.prefix), message_type='WARN')
 
-    async def check_permissions_for_command(self, requester: Member, command: str) -> bool:
+    async def check_permissions_for_command(self, requester: Member, command: str) -> Union[bool, None]:
         if command in self.FREE_COMMANDS:
             return True
 
@@ -251,4 +255,4 @@ class Oneshots:
             role_ids = list(map(lambda role: role.id, requester.roles))
             return not set(role_ids).isdisjoint(self.GATED_ROLES)
 
-        return False
+        return None
