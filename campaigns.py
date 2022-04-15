@@ -32,7 +32,7 @@ class Campaigns:
         help_embed.colour = Color.purple()
 
         help_embed.add_field(name='help', value='Displays this help.', inline=False)
-        help_embed.add_field(name='list', value='Lists all campaigns.', inline=False)
+        help_embed.add_field(name='list [offset]', value='Lists all campaigns, up to a maximum of {} per page. To see more campaigns use an offset, e.g. `{}campaign list 10`'.format(self.PAGE_SIZE, self.prefix), inline=False)
         help_embed.add_field(name='details <campaign-id|campaign-name>', value='Display a detailed overview about one campaign. If multiple are found, all matches will be shown.', inline=False)
         help_embed.add_field(name='add <name> <module> <description> <campaign-id>', value='Add a new campaign.', inline=False)
         help_embed.add_field(name='delete <campaign-name> <campaign-id>', value='Deletes a campaign. This cannot be undone!', inline=False)
