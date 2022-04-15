@@ -1,5 +1,6 @@
 import time
 from datetime import datetime
+from itertools import islice
 from os import getenv
 from time import mktime
 from typing import Tuple, Dict
@@ -16,6 +17,7 @@ from database import Database
 class Campaigns:
     FREE_COMMANDS = ['help', 'list', 'details']
     GATED_COMMANDS = ['add', 'delete', 'description', 'session']
+    PAGE_SIZE = 10
 
     def __init__(self, context: Context, db: Database, prefix: str):
         self.context = context
@@ -39,13 +41,31 @@ class Campaigns:
 
         await self.context.send(embed=help_embed)
 
-    async def show_list(self) -> None:
+    async def show_list(self, args: Tuple) -> None:
         """Prints a list of all currently active campaigns"""
         campaign_list = await self.db.list_campaigns()
-        out = Embed(colour=Color.blue(), title='List of campaigns', description='No campaigns found.' if len(campaign_list) == 0 else '')
+        if len(campaign_list) == 0:
+            out = Embed(colour=Color.blue(), title='List of campaigns', description='No campaigns found.')
+        else:
+            if len(args) > 0:
+                try:
+                    offset = int(args[0])
+                except ValueError:
+                    await message(context=self.context, text='The offset you provided is not a number.', message_type=WARN)
+                    return
+            else:
+                offset = 0
 
-        for campaign in campaign_list.values():
-            out.add_field(name=campaign.get('name'), value='*Module*: {}\n*Description*: {}'.format(campaign['module'], campaign['description']), inline=False)
+            if offset >= len(campaign_list):
+                await message(context=self.context, text='You specified an offset greater than the total number of campaigns.', message_type=WARN)
+                return
+
+            short_campaign_list = dict(islice(campaign_list.items(), offset, min(offset + self.PAGE_SIZE, len(campaign_list))))
+
+            out = Embed(colour=Color.blue(), title='List of campaigns (showing {}-{} of {})'.format(offset + 1, min(offset + 1 + self.PAGE_SIZE, len(campaign_list)), len(campaign_list)), description='')
+
+            for campaign in short_campaign_list.values():
+                out.add_field(name=campaign.get('name'), value='*Module*: {}\n*Description*: {}'.format(campaign['module'], campaign['description']), inline=False)
 
         await self.context.send(embed=out)
 
@@ -71,7 +91,7 @@ class Campaigns:
             embed.add_field(name='DM', value='<@{}>'.format(dm.id) if dm else 'Unknown User')
             embed.add_field(name='Description', value=campaign['description'])
 
-            embed.add_field(name='Next Session', value='<t:{0}>\n\n<t:{0}:R>'.format(int(mktime(datetime.strptime(campaign['session'], '%Y-%m-%d %I:%M%p').timetuple()))) if len(campaign['session']) > 0 else 'TBA')
+            embed.add_field(name='Next Session', value='<t:{0}>\n\n<t:{0}:R>'.format(int(mktime(datetime.strptime(campaign['session'], '%Y-%m-%d %I:%M%p').timetuple()))) if 'session' in campaign and len(campaign['session']) > 0 else 'TBA')
 
             await self.context.send(embed=embed)
 
@@ -207,7 +227,7 @@ class Campaigns:
         if subcommand == 'help':
             await self.help()
         elif subcommand == 'list':
-            await self.show_list()
+            await self.show_list(args[1:])
         elif subcommand == 'add':
             await self.add(sender, args[1:])
         elif subcommand == 'details':
