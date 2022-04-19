@@ -1,12 +1,13 @@
 from os import getenv
 
-from discord import Intents, Embed, Color
+from discord import Intents, Embed, Color, Game
 from discord.ext import commands
 from discord.ext.commands import Context
 from dotenv import load_dotenv
 
 from MessageHelper import message
 from MessageTypes import WARN
+from SessionPinger import SessionPinger
 from campaigns import Campaigns
 from database import Database
 from oneshots import Oneshots
@@ -16,13 +17,17 @@ load_dotenv()
 intents: Intents = Intents.default()
 # noinspection PyUnresolvedReferences,PyDunderSlots
 intents.members = True
-bot = commands.Bot(command_prefix=getenv('PREFIX', '$'), intents=intents)
+prefix = getenv('PREFIX', '$')
+bot = commands.Bot(command_prefix=prefix, intents=intents, activity=Game('Try {}help for more information.'.format(prefix)))
 bot.remove_command('help')
 
 
 @bot.event
 async def on_ready():
     print('Logged in as {0.user}'.format(bot))
+
+    for guild in bot.guilds:
+        await SessionPinger(guild).perform_loop.start()
 
 
 @bot.command(name='help')
