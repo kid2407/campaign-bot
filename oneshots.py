@@ -9,7 +9,7 @@ import pytz
 from discord import Color, Embed, Guild, Member
 from discord.ext.commands import Context
 
-from MessageHelper import message
+from MessageHelper import MessageHelper
 from MessageTypes import INFO, WARN, ERROR
 from database import Database
 
@@ -32,7 +32,10 @@ class Oneshots:
         help_embed.add_field(name='help', value='Displays this help.', inline=False)
         help_embed.add_field(name='list', value='Lists all oneshots.', inline=False)
         help_embed.add_field(name='details <oneshot-id|oneshot-name>', value='Display a detailed overview about one oneshot. If multiple are found, all matches will be shown.', inline=False)
-        help_embed.add_field(name='add <name> <description> <date> [channel]', value='Add a new oneshot. Use the format \'YYYY-MM-DD hour:minute[am/pm]\' (e.g. {}) for the date and time. Mention the channel or type down it\'s name.'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')), inline=False)
+        help_embed.add_field(name='add <name> <description> <date> [channel]',
+                             value='Add a new oneshot. Use the format \'YYYY-MM-DD hour:minute[am/pm]\' (e.g. {}) for the date and time. Mention the channel or type down it\'s name.'.format(
+                                 datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')),
+                             inline=False)
         help_embed.add_field(name='delete <oneshot-name> <oneshot-id>', value='Deletes a oneshot. This cannot be undone!', inline=False)
         help_embed.add_field(name='description <oneshot-id> <description>', value='Update the description of a oneshot.', inline=False)
         help_embed.add_field(name='channel <oneshot-id> <channel>', value='Update the channel of a oneshot.', inline=False)
@@ -43,13 +46,13 @@ class Oneshots:
     async def add(self, args) -> None:
         arg_count = len(args)
         if arg_count < 3:
-            await message(context=self.context, text='A date is required!', message_type=WARN)
+            await MessageHelper.message(context=self.context, text='A date is required!', message_type=WARN)
             return
         elif arg_count < 2:
-            await message(context=self.context, text='A description is required!', message_type=WARN)
+            await MessageHelper.message(context=self.context, text='A description is required!', message_type=WARN)
             return
         elif arg_count < 1:
-            await message(context=self.context, text='A name is required!', message_type=WARN)
+            await MessageHelper.message(context=self.context, text='A name is required!', message_type=WARN)
             return
 
         name = args[0]
@@ -69,32 +72,32 @@ class Oneshots:
                             channel = text_channel.id
                             break
             if channel is None:
-                await message(context=self.context, text='Invalid Channel ID or name!', message_type=WARN)
+                await MessageHelper.message(context=self.context, text='Invalid Channel ID or name!', message_type=WARN)
                 return
 
         oneshot_id = await self.db.add_oneshot(name=name, creator=self.context.author, description=description, time=start_time, channel=channel)
-        await message(context=self.context, text='Successfully added the oneshot "{}" with ID {}.'.format(name, oneshot_id), message_type=INFO)
+        await MessageHelper.message(context=self.context, text='Successfully added the oneshot "{}" with ID {}.'.format(name, oneshot_id), message_type=INFO)
 
     async def delete(self, args, requester: Member) -> None:
         """Deletes an oneshot from the database. This cannot be undone!"""
         if len(args) == 0:
-            await message(context=self.context, text='You need to specify the oneshots name or its ID to delete it!', message_type=WARN)
+            await MessageHelper.message(context=self.context, text='You need to specify the oneshots name or its ID to delete it!', message_type=WARN)
             return
 
         oneshots = await self.db.oneshot_details(identifier=args[0])
         if len(oneshots) != 1:
             if len(oneshots) == 0:
-                await message(context=self.context, text='Could not find the oneshot you specified!', message_type=WARN)
+                await MessageHelper.message(context=self.context, text='Could not find the oneshot you specified!', message_type=WARN)
                 return
-            await message(context=self.context, text='Multiple oneshots that match found. Please specify only one oneshot.', message_type=WARN)
+            await MessageHelper.message(context=self.context, text='Multiple oneshots that match found. Please specify only one oneshot.', message_type=WARN)
             return
 
         oneshot: Dict = oneshots[0]
         if oneshot['creator_id'] != requester.id:
-            await message(context=self.context, text='You are not the owner of the oneshot!', message_type=WARN)
+            await MessageHelper.message(context=self.context, text='You are not the owner of the oneshot!', message_type=WARN)
         else:
             await self.db.delete_oneshot(str(oneshot['id']))
-            await message(context=self.context, text='Deleted oneshot "{}" successfully.'.format(oneshot['name']), message_type=INFO)
+            await MessageHelper.message(context=self.context, text='Deleted oneshot "{}" successfully.'.format(oneshot['name']), message_type=INFO)
 
     async def show_list(self) -> None:
         oneshots = await self.db.list_oneshots()
@@ -108,13 +111,13 @@ class Oneshots:
     async def details(self, args) -> None:
         """Show the details of all oneshots, that match the given identifier"""
         if len(args) == 0:
-            await message(context=self.context, text='You have to specify a oneshot to show details for!', message_type=WARN)
+            await MessageHelper.message(context=self.context, text='You have to specify a oneshot to show details for!', message_type=WARN)
             return
 
         details = await self.db.oneshot_details(args[0])
 
         if not details or len(details) == 0:
-            await message(context=self.context, text='Could not find the oneshot you specified.', message_type=WARN)
+            await MessageHelper.message(context=self.context, text='Could not find the oneshot you specified.', message_type=WARN)
             return
 
         for oneshot in details:
@@ -134,10 +137,10 @@ class Oneshots:
     async def description(self, args) -> None:
         if len(args) < 2:
             if len(args) == 0:
-                await message(context=self.context, text='Please specify a valid oneshot-ID.', message_type=WARN)
+                await MessageHelper.message(context=self.context, text='Please specify a valid oneshot-ID.', message_type=WARN)
                 return
             if len(args) == 1:
-                await message(context=self.context, text='Please specify a new description.', message_type=WARN)
+                await MessageHelper.message(context=self.context, text='Please specify a new description.', message_type=WARN)
                 return
 
         oneshot_id = args[0]
@@ -145,17 +148,17 @@ class Oneshots:
 
         success = await self.db.update_oneshot_description(oneshot_id, description)
         if success:
-            await message(context=self.context, text='Description updated', message_type=INFO)
+            await MessageHelper.message(context=self.context, text='Description updated', message_type=INFO)
         else:
-            await message(context=self.context, text='Failed to update description: Invalid oneshot-ID.', message_type=ERROR)
+            await MessageHelper.message(context=self.context, text='Failed to update description: Invalid oneshot-ID.', message_type=ERROR)
 
     async def change_time(self, args) -> None:  # Time format: date = datetime.strptime(date_str, '%Y-%m-%d %I%p'), e.g. 2022-04-08 4:30pm
         if len(args) < 2:
             if len(args) == 0:
-                await message(context=self.context, text='Please specify a valid oneshot-ID.', message_type=WARN)
+                await MessageHelper.message(context=self.context, text='Please specify a valid oneshot-ID.', message_type=WARN)
                 return
             if len(args) == 1:
-                await message(context=self.context, text='Please specify a new time.', message_type=WARN)
+                await MessageHelper.message(context=self.context, text='Please specify a new time.', message_type=WARN)
                 return
 
         oneshot_id = args[0]
@@ -168,22 +171,25 @@ class Oneshots:
             time_valid = False
 
         if not time_valid:
-            await message(context=self.context, text='The time you specified is incorrectly formatted. Please use the format "YYYY-MM-DD hour:minute[am/pm]" (e.g. {})'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')), message_type=ERROR)
+            await MessageHelper.message(context=self.context,
+                                        text='The time you specified is incorrectly formatted. Please use the format "YYYY-MM-DD hour:minute[am/pm]" (e.g. {})'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')),
+                                        message_type=ERROR)
             return
 
         success = await self.db.oneshot_change_time(oneshot_id, time_string)
         if success:
-            await message(context=self.context, text='Successfully changed the time to <t:{0}>.'.format(int(mktime(datetime.strptime(time_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))), message_type=INFO)
+            await MessageHelper.message(context=self.context, text='Successfully changed the time to <t:{0}>.'.format(int(mktime(datetime.strptime(time_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))),
+                                        message_type=INFO)
         else:
-            await message(context=self.context, text='Failed to update session time: Invalid oneshot-ID.', message_type=ERROR)
+            await MessageHelper.message(context=self.context, text='Failed to update session time: Invalid oneshot-ID.', message_type=ERROR)
 
     async def change_channel(self, args) -> None:
         if len(args) < 2:
             if len(args) == 0:
-                await message(context=self.context, text='Please specify a valid oneshot-ID.', message_type=WARN)
+                await MessageHelper.message(context=self.context, text='Please specify a valid oneshot-ID.', message_type=WARN)
                 return
             if len(args) == 1:
-                await message(context=self.context, text='Please specify a new channel.', message_type=WARN)
+                await MessageHelper.message(context=self.context, text='Please specify a new channel.', message_type=WARN)
                 return
 
         oneshot_id = args[0]
@@ -194,13 +200,13 @@ class Oneshots:
 
         guild: Guild = self.context.guild
         if not guild:
-            await message(context=self.context, text='Error fetching the channel list. Please try again later.', message_type=ERROR)
+            await MessageHelper.message(context=self.context, text='Error fetching the channel list. Please try again later.', message_type=ERROR)
             return
 
         if result:
             channel = int(result.group())
             if guild.get_channel(channel) is None:
-                await message(context=self.context, text='Invalid Channel ID!', message_type=WARN)
+                await MessageHelper.message(context=self.context, text='Invalid Channel ID!', message_type=WARN)
                 return
         else:
             for text_channel in guild.text_channels:
@@ -208,11 +214,11 @@ class Oneshots:
                     channel = text_channel.id
                     break
         if channel is None:
-            await message(context=self.context, text='Invalid Channel ID or name!', message_type=WARN)
+            await MessageHelper.message(context=self.context, text='Invalid Channel ID or name!', message_type=WARN)
             return
 
         await self.db.oneshot_change_channel(oneshot_id, channel)
-        await message(context=self.context, text='Successfully changed the channel to {}.', message_type=INFO)
+        await MessageHelper.message(context=self.context, text='Successfully changed the channel to {}.', message_type=INFO)
 
     async def process_commands(self, sender: Member, args: Tuple) -> None:
         if len(args) == 0:
@@ -225,7 +231,7 @@ class Oneshots:
         if has_permission is None:
             subcommand = ''
         elif not has_permission:
-            await message(context=self.context, text='You do not have the required role to use this command!', message_type=WARN)
+            await MessageHelper.message(context=self.context, text='You do not have the required role to use this command!', message_type=WARN)
             return
 
         if subcommand == 'help':
@@ -245,7 +251,7 @@ class Oneshots:
         elif subcommand == 'channel':
             await self.change_channel(args[1:])
         else:
-            await message(self.context, text='Unknown subcommand. Try `{}campaign help` for a full list of subcommands'.format(self.prefix), message_type='WARN')
+            await MessageHelper.message(self.context, text='Unknown subcommand. Try `{}campaign help` for a full list of subcommands'.format(self.prefix), message_type='WARN')
 
     async def check_permissions_for_command(self, requester: Member, command: str) -> Union[bool, None]:
         if command in self.FREE_COMMANDS:

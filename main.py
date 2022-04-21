@@ -5,7 +5,7 @@ from discord.ext import commands
 from discord.ext.commands import Context
 from dotenv import load_dotenv
 
-from MessageHelper import message
+from MessageHelper import MessageHelper
 from MessageTypes import WARN
 from SessionPinger import SessionPinger
 from campaigns import Campaigns
@@ -45,7 +45,7 @@ async def generic_help(context: Context, *args) -> None:
         elif category == 'oneshot':
             await Oneshots(context, Database(), bot.command_prefix).help()
         else:
-            await message(context=context, text='Unknown category.', message_type=WARN)
+            await MessageHelper.message(context=context, text='Unknown category.', message_type=WARN)
 
 
 @bot.command(name='campaign')
