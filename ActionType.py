@@ -1,8 +1,8 @@
-CAMPAIGN_ADD = 'Campaign Added'
-CAMPAIGN_DELETE = 'Campaign Deleted'
-CAMPAIGN_DESCRIPTION = 'Campaign Description Updated'
-CAMPAIGN_SESSION = 'Campaign Session Date Updated'
-CAMPAIGN_ROLE = 'Campaign Role Updated'
+CAMPAIGN_ADD = 'Added campaign "{}" with ID "{}" by user "{}"'
+CAMPAIGN_DELETE = 'Deleted campaign "{}" with ID "{}"'
+CAMPAIGN_DESCRIPTION = 'Updated description for campaign "{}" with ID "{}" to "{}"'
+CAMPAIGN_SESSION = 'Updated session time for campaign "{}" with ID "{}" to "{}"'
+CAMPAIGN_ROLE = 'Updated notification role for campaign "{}" with ID "{}" to "{}"'
 
 ONESHOT_ADD = 'Oneshot Added'
 ONESHOT_DELETE = 'Oneshot Deleted'

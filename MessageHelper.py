@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict
 
 from discord import Embed, Color
 from discord.ext.commands import Context
@@ -12,13 +12,22 @@ from MessageTypes import INFO, WARN, ERROR
 class MessageHelper:
 
     @staticmethod
-    def log(action_type: ActionType, data: Any) -> None:
-        message = '(empty message)'
+    def log(action_type: ActionType, data: Dict) -> None:
 
         if action_type == ActionType.CAMPAIGN_ADD:
-            message = ActionType.CAMPAIGN_ADD.format(data['id'])
+            message = ActionType.CAMPAIGN_ADD.format(data['name'], data['id'], data['user'])
+        elif action_type == ActionType.CAMPAIGN_DELETE:
+            message = ActionType.CAMPAIGN_DELETE.format(data['name'], data['id'])
+        elif action_type == ActionType.CAMPAIGN_DESCRIPTION:
+            message = ActionType.CAMPAIGN_DESCRIPTION.format(data['name'], data['id'], data['description'])
+        elif action_type == ActionType.CAMPAIGN_SESSION:
+            message = ActionType.CAMPAIGN_SESSION.format(data['name'], data['id'], data['date'])
+        elif action_type == ActionType.CAMPAIGN_ROLE:
+            message = ActionType.CAMPAIGN_ROLE.format(data['name'], data['id'], data['role'])
+        else:
+            message = '(empty message)'
 
-        print('[{}] {}'.format(datetime.now().strftime('%Y-%m/%d %H:%M:%S'), data['id']))
+        print('[{}] {}'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), message))
 
     @staticmethod
     async def message(context: Context, text: str, message_type: MessageTypes) -> None:

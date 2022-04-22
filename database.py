@@ -84,11 +84,13 @@ class Database:
         self.save_data()
 
     async def update_campaign_session_date(self, campaign_id: str, session_string: str) -> bool:
-        if campaign_id not in self.data['campaigns']:
-            return False
         self.data['campaigns'][campaign_id]['session'] = session_string
         self.save_data()
         return True
+
+    async def update_campaign_role(self, camaign_id: str, role_id: int) -> None:
+        self.data['campaigns'][camaign_id]['role'] = role_id
+        self.save_data()
 
     # ------------- #
     # Oneshot-Stuff #

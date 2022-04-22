@@ -6,9 +6,10 @@ from time import mktime
 from typing import Tuple, Dict, Union
 
 import pytz
-from discord import Embed, Color, Member
+from discord import Embed, Color, Member, Guild, Role
 from discord.ext.commands import Context
 
+import ActionType
 from MessageHelper import MessageHelper
 from MessageTypes import INFO, WARN, ERROR
 from database import Database
@@ -16,7 +17,7 @@ from database import Database
 
 class Campaigns:
     FREE_COMMANDS = ['help', 'list', 'details']
-    GATED_COMMANDS = ['add', 'delete', 'description', 'session']
+    GATED_COMMANDS = ['add', 'delete', 'description', 'session', 'role']
     PAGE_SIZE = 10
 
     def __init__(self, context: Context, db: Database, prefix: str):
@@ -121,6 +122,7 @@ class Campaigns:
 
         success = await self.db.add_campaign(name, creator.id, module, description, campaign_id)
         if success:
+            MessageHelper.log(ActionType.CAMPAIGN_ADD, {'name': name, 'id': campaign_id, 'user': creator.display_name})
             await MessageHelper.message(context=self.context, text='Created campaign "{}" with ID {}.'.format(name, campaign_id), message_type=INFO)
         else:
             await MessageHelper.message(context=self.context, text='Failed to create campaign: Campaign with the ID {} already exists!'.format(campaign_id), message_type=ERROR)
@@ -149,6 +151,7 @@ class Campaigns:
             await MessageHelper.message(context=self.context, text='You are not the owner of the campaign!', message_type=WARN)
         else:
             await self.db.delete_campaign(str(campaign['id']))
+            MessageHelper.log(ActionType.CAMPAIGN_DELETE, {'name': campaign['name'], 'id': campaign['id'], 'user': requester.display_name})
             await MessageHelper.message(context=self.context, text='Deleted campaign "{}" successfully.'.format(campaign['name']), message_type=INFO)
 
     async def update_description(self, requester: Member, args: Tuple) -> None:
@@ -176,6 +179,7 @@ class Campaigns:
             return
 
         await self.db.update_campaign_description(str(campaign['id']), description)
+        MessageHelper.log(ActionType.CAMPAIGN_DESCRIPTION, {'name': campaign['name'], 'id': campaign['id'], 'description': description})
         await MessageHelper.message(context=self.context, text='Description for campaign {} has been updated.'.format(campaign['name']), message_type=INFO)
 
     async def update_session_date(self, requester: Member, args: Tuple) -> None:
@@ -209,19 +213,58 @@ class Campaigns:
             time_valid = False
 
         if not time_valid:
-            await MessageHelper.message(context=self.context, text='The time you specified is incorrectly formatted. Please use the format "YYYY-MM-DD hour:minute[am/pm]" (e.g. {})'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')),
-                          message_type=ERROR)
+            await MessageHelper.message(context=self.context,
+                                        text='The time you specified is incorrectly formatted. Please use the format "YYYY-MM-DD hour:minute[am/pm]" (e.g. {})'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')),
+                                        message_type=ERROR)
             return
 
         success = await self.db.update_campaign_session_date(str(campaign['id']), session_string)
         if success:
-            await MessageHelper.message(context=self.context, text='Successfully changed the session time to <t:{0}>.'.format(int(mktime(datetime.strptime(session_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))),
-                          message_type=INFO)
+            MessageHelper.log(ActionType.CAMPAIGN_SESSION, {'name': campaign['name'], 'id': campaign['id'], 'date': session_string})
+            await MessageHelper.message(context=self.context,
+                                        text='Successfully changed the session time to <t:{0}>.'.format(int(mktime(datetime.strptime(session_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))),
+                                        message_type=INFO)
         else:
             await MessageHelper.message(context=self.context, text='Failed to update session time: An unknown error occurred.', message_type=ERROR)
 
-    async def update_notification_role(self, sender: Member, args: Tuple) -> None:
-        pass
+    async def update_notification_role(self, requester: Member, args: Tuple) -> None:
+        if len(args) < 2:
+            if len(args) == 0:
+                await MessageHelper.message(context=self.context, text='You have to specify a campaign!', message_type=WARN)
+                return
+            if len(args) == 1:
+                await MessageHelper.message(context=self.context, text='You have to specify a role!', message_type=WARN)
+                return
+
+        campaign_id = args[0]
+        role = args[1]
+        campaigns = await self.db.campaign_details(identifier=campaign_id)
+        if not campaigns or len(campaigns) != 1:
+            if not campaigns or len(campaigns) == 0:
+                await MessageHelper.message(context=self.context, text='You specified an invalid campaign!', message_type=WARN)
+                return
+            await MessageHelper.message(context=self.context, text='Multiple campaigns that match found. Please specify only one campaign.', message_type=WARN)
+            return
+
+        campaign = campaigns[0]
+        if campaign['creator_id'] != requester.id:
+            await MessageHelper.message(context=self.context, text='You are not the owner of the campaign!', message_type=WARN)
+            return
+
+        guild: Guild = self.context.guild
+        try:
+            role = int(''.join(filter(str.isdigit, role)))
+            role_object: Union[Role, None] = guild.get_role(role)
+        except ValueError:
+            role_object = None
+
+        if role_object is None:
+            await MessageHelper.message(context=self.context, text='You specified an invalid role!', message_type=WARN)
+            return
+
+        await self.db.update_campaign_role(campaign_id, role_object.id)
+        MessageHelper.log(ActionType.CAMPAIGN_ROLE, {'name': campaign['name'], 'id': campaign['id'], 'role': role_object.name})
+        await MessageHelper.message(context=self.context, text='Updated campaign role successfully.', message_type=INFO)
 
     async def process_commands(self, sender: Member, args) -> None:
         if len(args) == 0:
