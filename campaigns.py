@@ -230,16 +230,11 @@ class Campaigns:
             await MessageHelper.message(context=self.context, text='Failed to update session time: An unknown error occurred.', message_type=ERROR)
 
     async def update_notification_role(self, requester: Member, args: Tuple) -> None:
-        if len(args) < 2:
-            if len(args) == 0:
-                await MessageHelper.message(context=self.context, text='You have to specify a campaign!', message_type=WARN)
-                return
-            if len(args) == 1:
-                await MessageHelper.message(context=self.context, text='You have to specify a role!', message_type=WARN)
-                return
+        if len(args) < 1:
+            await MessageHelper.message(context=self.context, text='You have to specify a campaign!', message_type=WARN)
+            return
 
         campaign_id = args[0]
-        role = args[1]
         campaigns = await self.db.campaign_details(identifier=campaign_id)
         if not campaigns or len(campaigns) != 1:
             if not campaigns or len(campaigns) == 0:
@@ -254,19 +249,32 @@ class Campaigns:
             return
 
         guild: Guild = self.context.guild
-        try:
-            role = int(''.join(filter(str.isdigit, role)))
-            role_object: Union[Role, None] = guild.get_role(role)
-        except ValueError:
-            role_object = None
 
-        if role_object is None:
-            await MessageHelper.message(context=self.context, text='You specified an invalid role!', message_type=WARN)
-            return
+        if len(args) > 1:
+            role = args[1]
 
-        await self.db.update_campaign_role(campaign_id, role_object.id)
-        MessageHelper.log(ActionType.CAMPAIGN_ROLE, {'name': campaign['name'], 'id': campaign['id'], 'role': role_object.name})
-        await MessageHelper.message(context=self.context, text='Updated campaign role successfully.', message_type=INFO)
+            try:
+                role = int(''.join(filter(str.isdigit, role)))
+                role_object: Union[Role, None] = guild.get_role(role)
+            except ValueError:
+                role_object = None
+                for single_role in guild.roles:
+                    if single_role.name.lower() == role.lower():
+                        role_object = single_role
+                        break
+
+            if role_object is None:
+                await MessageHelper.message(context=self.context, text='You specified an invalid role!', message_type=WARN)
+                return
+
+            await self.db.update_campaign_role(campaign_id, role_object.id)
+            MessageHelper.log(ActionType.CAMPAIGN_ROLE, {'name': campaign['name'], 'id': campaign['id'], 'role': role_object.name})
+            await MessageHelper.message(context=self.context, text='Updated campaign role successfully.', message_type=INFO)
+        else:
+            role_object = guild.get_role(int(campaign['role'])) if 'role' in campaign else None
+            await MessageHelper.message(context=self.context,
+                                        text='The current role to ping is "{}" with the ID `{}`.'.format(role_object.name if role_object is not None else '(empty)', role_object.id if role_object is not None else '(empty)'),
+                                        message_type=INFO)
 
     async def change_channel(self, requester: Member, args: Tuple) -> None:
         if len(args) < 2:
