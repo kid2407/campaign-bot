@@ -253,11 +253,11 @@ class Campaigns:
         if len(args) > 1:
             role = args[1]
 
-            try:
-                role = int(''.join(filter(str.isdigit, role)))
-                role_object: Union[Role, None] = guild.get_role(role)
-            except ValueError:
-                role_object = None
+            role_object = None
+            filtered_role = ''.join(filter(str.isdigit, role))
+            if len(role) == len(filtered_role):
+                role_object: Union[Role, None] = guild.get_role(int(role))
+            else:
                 for single_role in guild.roles:
                     if single_role.name.lower() == role.lower():
                         role_object = single_role
