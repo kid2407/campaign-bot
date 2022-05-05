@@ -92,6 +92,10 @@ class Database:
         self.data['campaigns'][camaign_id]['role'] = role_id
         self.save_data()
 
+    async def campaign_change_channel(self, campaign_id: str, channel: int) -> None:
+        self.data['campaigns'][campaign_id]['channel'] = channel
+        self.save_data()
+
     # ------------- #
     # Oneshot-Stuff #
     # ------------- #

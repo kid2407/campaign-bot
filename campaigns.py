@@ -1,3 +1,4 @@
+import re
 import time
 from datetime import datetime
 from itertools import islice
@@ -17,7 +18,7 @@ from database import Database
 
 class Campaigns:
     FREE_COMMANDS = ['help', 'list', 'details']
-    GATED_COMMANDS = ['add', 'delete', 'description', 'session', 'role']
+    GATED_COMMANDS = ['add', 'delete', 'description', 'session', 'role', 'channel']
     PAGE_SIZE = 10
 
     def __init__(self, context: Context, db: Database, prefix: str):
@@ -41,7 +42,8 @@ class Campaigns:
         help_embed.add_field(name='session <campaign-id> <date>',
                              value='Update the date of the next session. Requires to use the format \'YYYY-MM-DD hour:minute[am/pm]\' (e.g. {}) for the date and time.'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')),
                              inline=False)
-        help_embed.add_field(name='role', value='Update the role to be pinged for sessions.', inline=False)
+        help_embed.add_field(name='role <campaign-id> <role-id|role-name>', value='Update the role to be pinged for sessions.', inline=False)
+        help_embed.add_field(name='channel <campaign-id> <channel-id|channel-name>', value='Update the channel to to receive notifications for sessions.', inline=False)
 
         await self.context.send(embed=help_embed)
 
@@ -266,6 +268,57 @@ class Campaigns:
         MessageHelper.log(ActionType.CAMPAIGN_ROLE, {'name': campaign['name'], 'id': campaign['id'], 'role': role_object.name})
         await MessageHelper.message(context=self.context, text='Updated campaign role successfully.', message_type=INFO)
 
+    async def change_channel(self, requester: Member, args: Tuple) -> None:
+        if len(args) < 2:
+            if len(args) == 0:
+                await MessageHelper.message(context=self.context, text='Please specify a valid campaign-ID.', message_type=WARN)
+                return
+            if len(args) == 1:
+                await MessageHelper.message(context=self.context, text='Please specify a new channel.', message_type=WARN)
+                return
+
+        campaign_id = args[0]
+        channel_string = args[1]
+
+        campaigns = await self.db.campaign_details(identifier=campaign_id)
+        if not campaigns or len(campaigns) != 1:
+            if not campaigns or len(campaigns) == 0:
+                await MessageHelper.message(context=self.context, text='You specified an invalid campaign!', message_type=WARN)
+                return
+            await MessageHelper.message(context=self.context, text='Multiple campaigns that match found. Please specify only one campaign.', message_type=WARN)
+            return
+
+        campaign = campaigns[0]
+        if campaign['creator_id'] != requester.id:
+            await MessageHelper.message(context=self.context, text='You are not the owner of the campaign!', message_type=WARN)
+            return
+
+        channel = None
+        result = re.search(r'\d+', channel_string)
+
+        guild: Guild = self.context.guild
+        if not guild:
+            await MessageHelper.message(context=self.context, text='Error fetching the channel list. Please try again later.', message_type=ERROR)
+            return
+
+        if result:
+            channel = int(result.group())
+            if guild.get_channel(channel) is None:
+                await MessageHelper.message(context=self.context, text='Invalid Channel ID!', message_type=WARN)
+                return
+        else:
+            for text_channel in guild.text_channels:
+                if text_channel.name == channel_string:
+                    channel = text_channel.id
+                    break
+        if channel is None:
+            await MessageHelper.message(context=self.context, text='Invalid Channel ID or name!', message_type=WARN)
+            return
+
+        await self.db.campaign_change_channel(campaign_id, channel)
+        MessageHelper.log(ActionType.CAMPAIGN_CHANNEL, {'id': campaign_id, 'name': (await self.db.campaign_details(campaign_id))[0]['name'], 'channel': channel})
+        await MessageHelper.message(context=self.context, text='Successfully changed the channel to <#{}>.'.format(channel), message_type=INFO)
+
     async def process_commands(self, sender: Member, args) -> None:
         if len(args) == 0:
             subcommand = 'help'
@@ -296,6 +349,8 @@ class Campaigns:
             await self.update_session_date(sender, args[1:])
         elif subcommand == 'role':
             await self.update_notification_role(sender, args[1:])
+        elif subcommand == 'channel':
+            await self.change_channel(sender, args[1:])
         else:
             await MessageHelper.message(self.context, text='Unknown subcommand. Try `{}campaign help` for a full list of subcommands'.format(self.prefix), message_type='WARN')
 

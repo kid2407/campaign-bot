@@ -9,6 +9,7 @@ import pytz
 from discord import Color, Embed, Guild, Member
 from discord.ext.commands import Context
 
+import ActionType
 from MessageHelper import MessageHelper
 from MessageTypes import INFO, WARN, ERROR
 from database import Database
@@ -43,7 +44,7 @@ class Oneshots:
 
         await self.context.send(embed=help_embed)
 
-    async def add(self, args) -> None:
+    async def add(self, requester: Member, args: Tuple) -> None:
         arg_count = len(args)
         if arg_count < 3:
             await MessageHelper.message(context=self.context, text='A date is required!', message_type=WARN)
@@ -76,6 +77,7 @@ class Oneshots:
                 return
 
         oneshot_id = await self.db.add_oneshot(name=name, creator=self.context.author, description=description, time=start_time, channel=channel)
+        MessageHelper.log(ActionType.ONESHOT_ADD, {'id': oneshot_id, 'name': name, 'user': requester.display_name})
         await MessageHelper.message(context=self.context, text='Successfully added the oneshot "{}" with ID {}.'.format(name, oneshot_id), message_type=INFO)
 
     async def delete(self, args, requester: Member) -> None:
@@ -85,8 +87,8 @@ class Oneshots:
             return
 
         oneshots = await self.db.oneshot_details(identifier=args[0])
-        if len(oneshots) != 1:
-            if len(oneshots) == 0:
+        if not oneshots or len(oneshots) != 1:
+            if not oneshots or len(oneshots) == 0:
                 await MessageHelper.message(context=self.context, text='Could not find the oneshot you specified!', message_type=WARN)
                 return
             await MessageHelper.message(context=self.context, text='Multiple oneshots that match found. Please specify only one oneshot.', message_type=WARN)
@@ -97,6 +99,7 @@ class Oneshots:
             await MessageHelper.message(context=self.context, text='You are not the owner of the oneshot!', message_type=WARN)
         else:
             await self.db.delete_oneshot(str(oneshot['id']))
+            MessageHelper.log(ActionType.ONESHOT_DELETE, {'id': oneshot['id'], 'name': oneshot['name']})
             await MessageHelper.message(context=self.context, text='Deleted oneshot "{}" successfully.'.format(oneshot['name']), message_type=INFO)
 
     async def show_list(self) -> None:
@@ -148,6 +151,8 @@ class Oneshots:
 
         success = await self.db.update_oneshot_description(oneshot_id, description)
         if success:
+            oneshot = await self.db.oneshot_details(oneshot_id)
+            MessageHelper.log(ActionType.ONESHOT_DESCRIPTION, {'id': oneshot_id, 'name': oneshot[0]['name'], 'description': description})
             await MessageHelper.message(context=self.context, text='Description updated', message_type=INFO)
         else:
             await MessageHelper.message(context=self.context, text='Failed to update description: Invalid oneshot-ID.', message_type=ERROR)
@@ -178,7 +183,10 @@ class Oneshots:
 
         success = await self.db.oneshot_change_time(oneshot_id, time_string)
         if success:
-            await MessageHelper.message(context=self.context, text='Successfully changed the time to <t:{0}>.'.format(int(mktime(datetime.strptime(time_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))),
+            oneshot = await self.db.oneshot_details(oneshot_id)
+            MessageHelper.log(ActionType.ONESHOT_TIME, {'id': oneshot_id, 'name': oneshot[0]['name'], 'date': time_string})
+            await MessageHelper.message(context=self.context,
+                                        text='Successfully changed the time to <t:{0}>.'.format(int(mktime(datetime.strptime(time_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))),
                                         message_type=INFO)
         else:
             await MessageHelper.message(context=self.context, text='Failed to update session time: Invalid oneshot-ID.', message_type=ERROR)
@@ -218,6 +226,8 @@ class Oneshots:
             return
 
         await self.db.oneshot_change_channel(oneshot_id, channel)
+        oneshot = await self.db.oneshot_details(oneshot_id)
+        MessageHelper.log(ActionType.ONESHOT_CHANNEL, {'id': oneshot_id, 'name': oneshot[0]['name'], 'channel': channel})
         await MessageHelper.message(context=self.context, text='Successfully changed the channel to {}.', message_type=INFO)
 
     async def process_commands(self, sender: Member, args: Tuple) -> None:
@@ -237,7 +247,7 @@ class Oneshots:
         if subcommand == 'help':
             await self.help()
         elif subcommand == 'add':
-            await self.add(args[1:])
+            await self.add(sender, args[1:])
         elif subcommand == 'delete':
             await self.delete(args[1:], sender)
         elif subcommand == 'list':
