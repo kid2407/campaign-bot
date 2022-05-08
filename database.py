@@ -88,12 +88,16 @@ class Database:
         self.save_data()
         return True
 
-    async def update_campaign_role(self, camaign_id: str, role_id: int) -> None:
-        self.data['campaigns'][camaign_id]['role'] = role_id
+    async def update_campaign_role(self, campaign_id: str, role_id: int) -> None:
+        self.data['campaigns'][campaign_id]['role'] = role_id
         self.save_data()
 
     async def campaign_change_channel(self, campaign_id: str, channel: int) -> None:
         self.data['campaigns'][campaign_id]['channel'] = channel
+        self.save_data()
+
+    async def update_extra_campaign_notification(self, campaign_id: str, status: str) -> None:
+        self.data['campaigns'][campaign_id]['extra-notification'] = status
         self.save_data()
 
     # ------------- #

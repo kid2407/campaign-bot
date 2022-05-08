@@ -26,6 +26,8 @@ class MessageHelper:
             message = ActionType.CAMPAIGN_ROLE.format(data['name'], data['id'], data['role'])
         elif action_type == ActionType.CAMPAIGN_CHANNEL:
             message = ActionType.CAMPAIGN_CHANNEL.format(data['name'], data['id'], data['channel'])
+        elif action_type == ActionType.CAMPAIGN_EXTRA_NOTIFICATION:
+            message = ActionType.CAMPAIGN_EXTRA_NOTIFICATION.format(data['name'], data['id'], data['status'])
         elif action_type == ActionType.ONESHOT_ADD:
             message = ActionType.ONESHOT_ADD.format(data['name'], data['id'], data['user'])
         elif action_type == ActionType.ONESHOT_DELETE:

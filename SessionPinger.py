@@ -29,7 +29,7 @@ class SessionPinger:
                 role = self.guild.get_role(role_id)
                 channel = self.guild.get_channel(channel_id)
                 if role is not None and channel is not None:
-                    session_times.append({'time': session_time, 'role': role_id, 'channel': channel_id})
+                    session_times.append({'time': session_time, 'role': role_id, 'channel': channel_id, 'extra-notification': campaign['extra-notification'] if 'extra-notification' in campaign else 'false'})
 
         return session_times
 
@@ -49,6 +49,18 @@ class SessionPinger:
                         colour=Color.orange(),
                         description='The session starts in 1 hour, at <t:{0}> (<t:{0}:R>)'.format(int(time.mktime(session_time.replace(tzinfo=pytz.timezone('Europe/London')).timetuple())))
                     ))
+
+            if session_data['extra-notification'] == 'true':
+                today_morning = pytz.timezone('Europe/Berlin').localize(datetime.now().replace(second=0, microsecond=0, minute=0, hour=9))
+
+                if today_morning == current and current.date() == session_time.date():
+                    channel: TextChannel = self.guild.get_channel(session_data['channel'])
+                    if channel is not None:
+                        await channel.send(content='<@&{}>'.format(session_data['role']), embed=Embed(
+                            title='Session Reminder',
+                            colour=Color.orange(),
+                            description='Today is game day! The session is at <t:{0}> (<t:{0}:R>)'.format(int(time.mktime(session_time.replace(tzinfo=pytz.timezone('Europe/London')).timetuple())))
+                        ))
 
     async def stop(self):
         self.perform_loop.cancel()

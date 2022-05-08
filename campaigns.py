@@ -18,7 +18,7 @@ from database import Database
 
 class Campaigns:
     FREE_COMMANDS = ['help', 'list', 'details']
-    GATED_COMMANDS = ['add', 'delete', 'description', 'session', 'role', 'channel']
+    GATED_COMMANDS = ['add', 'delete', 'description', 'session', 'role', 'channel', 'notify']
     PAGE_SIZE = 10
 
     def __init__(self, context: Context, db: Database, prefix: str):
@@ -44,6 +44,7 @@ class Campaigns:
                              inline=False)
         help_embed.add_field(name='role <campaign-id> <role-id|role-name>', value='Update the role to be pinged for sessions.', inline=False)
         help_embed.add_field(name='channel <campaign-id> <channel-id|channel-name>', value='Update the channel to to receive notifications for sessions.', inline=False)
+        help_embed.add_field(name='notify <campaign-id> <true|false>', value='Set if you want to receive an additional notification in the morning of the session.', inline=False)
 
         await self.context.send(embed=help_embed)
 
@@ -327,6 +328,39 @@ class Campaigns:
         MessageHelper.log(ActionType.CAMPAIGN_CHANNEL, {'id': campaign_id, 'name': (await self.db.campaign_details(campaign_id))[0]['name'], 'channel': channel})
         await MessageHelper.message(context=self.context, text='Successfully changed the channel to <#{}>.'.format(channel), message_type=INFO)
 
+    async def update_extra_notification(self, requester: Member, args: Tuple) -> None:
+        if len(args) < 2:
+            if len(args) == 0:
+                await MessageHelper.message(context=self.context, text='Please specify a valid campaign-ID.', message_type=WARN)
+                return
+            if len(args) == 1:
+                await MessageHelper.message(context=self.context, text='Please specify if you want to turn the extra notification on or off.', message_type=WARN)
+                return
+
+        campaign_id = args[0]
+        new_status = args[1]
+
+        campaigns = await self.db.campaign_details(identifier=campaign_id)
+        if not campaigns or len(campaigns) != 1:
+            if not campaigns or len(campaigns) == 0:
+                await MessageHelper.message(context=self.context, text='You specified an invalid campaign!', message_type=WARN)
+                return
+            await MessageHelper.message(context=self.context, text='Multiple campaigns that match found. Please specify only one campaign.', message_type=WARN)
+            return
+
+        campaign = campaigns[0]
+        if campaign['creator_id'] != requester.id:
+            await MessageHelper.message(context=self.context, text='You are not the owner of the campaign!', message_type=WARN)
+            return
+
+        if new_status not in ['true', 'false']:
+            await MessageHelper.message(context=self.context, text='Invalid status specified, please use "true" or "false".', message_type=WARN)
+            return
+
+        await self.db.update_extra_campaign_notification(campaign_id, new_status)
+        MessageHelper.log(ActionType.CAMPAIGN_EXTRA_NOTIFICATION, {'id': campaign['id'], 'name': campaign['name'], 'status': new_status})
+        await MessageHelper.message(context=self.context, text='Successfully updated the extra notification to be {}.'.format('enabled' if new_status == 'true' else 'disabled'), message_type=INFO)
+
     async def process_commands(self, sender: Member, args) -> None:
         if len(args) == 0:
             subcommand = 'help'
@@ -359,6 +393,8 @@ class Campaigns:
             await self.update_notification_role(sender, args[1:])
         elif subcommand == 'channel':
             await self.change_channel(sender, args[1:])
+        elif subcommand == 'notify':
+            await self.update_extra_notification(sender, args[1:])
         else:
             await MessageHelper.message(self.context, text='Unknown subcommand. Try `{}campaign help` for a full list of subcommands'.format(self.prefix), message_type='WARN')
 
