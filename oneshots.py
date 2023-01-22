@@ -2,7 +2,6 @@ import re
 import time
 from datetime import datetime
 from os import getenv
-from time import mktime
 from typing import Dict, Tuple, Union
 
 import pytz
@@ -35,7 +34,7 @@ class Oneshots:
         help_embed.add_field(name='details <oneshot-id|oneshot-name>', value='Display a detailed overview about one oneshot. If multiple are found, all matches will be shown.', inline=False)
         help_embed.add_field(name='add <name> <description> <date> [channel]',
                              value='Add a new oneshot. Use the format \'YYYY-MM-DD hour:minute[am/pm]\' (e.g. {}) for the date and time. Mention the channel or type down it\'s name.'.format(
-                                 datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')),
+                                 datetime.now(pytz.timezone('Europe/Berlin')).strftime('%Y-%m-%d %I:%M%p')),
                              inline=False)
         help_embed.add_field(name='delete <oneshot-name> <oneshot-id>', value='Deletes a oneshot. This cannot be undone!', inline=False)
         help_embed.add_field(name='description <oneshot-id> <description>', value='Update the description of a oneshot.', inline=False)
@@ -128,7 +127,7 @@ class Oneshots:
             embed.add_field(name='ID', value=oneshot['id'])
             embed.add_field(name='Name', value=oneshot['name'])
             embed.add_field(name='Description', value=oneshot['description'])
-            embed.add_field(name='Date/Time', value='<t:{0}> (<t:{0}:R>)'.format(int(mktime(datetime.strptime(oneshot['time'], '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))))
+            embed.add_field(name='Date/Time', value='<t:{0}> (<t:{0}:R>)'.format(int(datetime.strptime(oneshot['time'], '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('utc')).timestamp())))
             if oneshot['channel'] is not None:
                 embed.add_field(name='Channel', value='<#{}>'.format(oneshot['channel']))
 
@@ -177,7 +176,7 @@ class Oneshots:
 
         if not time_valid:
             await MessageHelper.message(context=self.context,
-                                        text='The time you specified is incorrectly formatted. Please use the format "YYYY-MM-DD hour:minute[am/pm]" (e.g. {})'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')),
+                                        text='The time you specified is incorrectly formatted. Please use the format "YYYY-MM-DD hour:minute[am/pm]" (e.g. {})'.format(datetime.now(pytz.timezone('Europe/Berlin')).strftime('%Y-%m-%d %I:%M%p')),
                                         message_type=ERROR)
             return
 
@@ -186,7 +185,7 @@ class Oneshots:
             oneshot = await self.db.oneshot_details(oneshot_id)
             MessageHelper.log(ActionType.ONESHOT_TIME, {'id': oneshot_id, 'name': oneshot[0]['name'], 'date': time_string})
             await MessageHelper.message(context=self.context,
-                                        text='Successfully changed the time to <t:{0}>.'.format(int(mktime(datetime.strptime(time_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))),
+                                        text='Successfully changed the time to <t:{0}>.'.format(int(datetime.strptime(time_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('utc')).timestamp())),
                                         message_type=INFO)
         else:
             await MessageHelper.message(context=self.context, text='Failed to update session time: Invalid oneshot-ID.', message_type=ERROR)

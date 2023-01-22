@@ -1,10 +1,8 @@
-import json
-import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Union, Any
+from typing import Dict, List
 
 import pytz
-from discord import Guild, Role, TextChannel, Embed, Color
+from discord import Guild, TextChannel, Embed, Color
 from discord.ext import tasks
 
 from database import Database
@@ -39,7 +37,7 @@ class SessionPinger:
         current = pytz.timezone('Europe/Berlin').localize(datetime.now().replace(second=0, microsecond=0))
 
         for session_data in session_times:
-            session_time = pytz.timezone('Europe/London').localize(datetime.strptime(session_data['time'], '%Y-%m-%d %I:%M%p'))
+            session_time = pytz.timezone('Europe/Berlin').localize(datetime.strptime(session_data['time'], '%Y-%m-%d %I:%M%p'))
 
             if current + timedelta(hours=1) == session_time:
                 channel: TextChannel = self.guild.get_channel(session_data['channel'])
@@ -47,7 +45,7 @@ class SessionPinger:
                     await channel.send(content='<@&{}>'.format(session_data['role']), embed=Embed(
                         title='Session Reminder',
                         colour=Color.orange(),
-                        description='The session starts in 1 hour, at <t:{0}> (<t:{0}:R>)'.format(int(time.mktime(session_time.replace(tzinfo=pytz.timezone('Europe/London')).timetuple())))
+                        description='The session starts in 1 hour, at <t:{0}> (<t:{0}:R>)'.format(int(session_time.replace(tzinfo=pytz.timezone('utc')).timestamp()))
                     ))
 
             if session_data['extra-notification'] == 'true':
@@ -59,7 +57,7 @@ class SessionPinger:
                         await channel.send(content='<@&{}>'.format(session_data['role']), embed=Embed(
                             title='Session Reminder',
                             colour=Color.orange(),
-                            description='Today is game day! The session is at <t:{0}> (<t:{0}:R>)'.format(int(time.mktime(session_time.replace(tzinfo=pytz.timezone('Europe/London')).timetuple())))
+                            description='Today is game day! The session is at <t:{0}> (<t:{0}:R>)'.format(int(session_time.replace(tzinfo=pytz.timezone('utc')).timestamp()))
                         ))
 
     async def stop(self):

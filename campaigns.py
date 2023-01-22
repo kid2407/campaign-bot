@@ -3,7 +3,6 @@ import time
 from datetime import datetime
 from itertools import islice
 from os import getenv
-from time import mktime
 from typing import Tuple, Dict, Union
 
 import pytz
@@ -40,7 +39,7 @@ class Campaigns:
         help_embed.add_field(name='delete <campaign-name> <campaign-id>', value='Deletes a campaign. This cannot be undone!', inline=False)
         help_embed.add_field(name='description <campaign-id> <description>', value='Update the description of a campaign.', inline=False)
         help_embed.add_field(name='session <campaign-id> <date>',
-                             value='Update the date of the next session. Requires to use the format \'YYYY-MM-DD hour:minute[am/pm]\' (e.g. {}) for the date and time.'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')),
+                             value='Update the date of the next session. Requires to use the format \'YYYY-MM-DD hour:minute[am/pm]\' (e.g. {}) for the date and time.'.format(datetime.now(pytz.timezone('Europe/Berlin')).strftime('%Y-%m-%d %I:%M%p')),
                              inline=False)
         help_embed.add_field(name='role <campaign-id> <role-id|role-name>', value='Update the role to be pinged for sessions.', inline=False)
         help_embed.add_field(name='channel <campaign-id> <channel-id|channel-name>', value='Update the channel to to receive notifications for sessions.', inline=False)
@@ -98,7 +97,7 @@ class Campaigns:
             embed.add_field(name='DM', value='<@{}>'.format(dm.id) if dm else 'Unknown User')
             embed.add_field(name='Description', value=campaign['description'])
 
-            embed.add_field(name='Next Session', value='<t:{0}>\n\n<t:{0}:R>'.format(int(mktime(datetime.strptime(campaign['session'], '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))) if 'session' in campaign and len(
+            embed.add_field(name='Next Session', value='<t:{0}>\n\n<t:{0}:R>'.format(int(datetime.strptime(campaign['session'], '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('utc')).timestamp())) if 'session' in campaign and len(
                 campaign['session']) > 0 else 'TBA')
 
             await self.context.send(embed=embed)
@@ -217,7 +216,7 @@ class Campaigns:
 
         if not time_valid:
             await MessageHelper.message(context=self.context,
-                                        text='The time you specified is incorrectly formatted. Please use the format "YYYY-MM-DD hour:minute[am/pm]" (e.g. {})'.format(datetime.now(pytz.timezone('Europe/London')).strftime('%Y-%m-%d %I:%M%p')),
+                                        text='The time you specified is incorrectly formatted. Please use the format "YYYY-MM-DD hour:minute[am/pm]" (e.g. {})'.format(datetime.now(tz=pytz.timezone('Europe/Berlin')).strftime('%Y-%m-%d %I:%M%p')),
                                         message_type=ERROR)
             return
 
@@ -225,7 +224,7 @@ class Campaigns:
         if success:
             MessageHelper.log(ActionType.CAMPAIGN_SESSION, {'name': campaign['name'], 'id': campaign['id'], 'date': session_string})
             await MessageHelper.message(context=self.context,
-                                        text='Successfully changed the session time to <t:{0}>.'.format(int(mktime(datetime.strptime(session_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('Europe/London')).timetuple()))),
+                                        text='Successfully changed the session time to <t:{0}>.'.format(int(datetime.strptime(session_string, '%Y-%m-%d %I:%M%p').replace(tzinfo=pytz.timezone('utc')).timestamp())),
                                         message_type=INFO)
         else:
             await MessageHelper.message(context=self.context, text='Failed to update session time: An unknown error occurred.', message_type=ERROR)
